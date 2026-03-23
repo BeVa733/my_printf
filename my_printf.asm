@@ -5,15 +5,20 @@ printing_str:   resb BUF_LEN
 
 section .rodata
 percents_offsets:
-        dq      default_handler - percents_offsets
-        dq      binary_handler  - percents_offsets
-        dq      symbol_handler  - percents_offsets
-        dq      decimal_handler - percents_offsets
+        dq      default_handler  - percents_offsets
+        dq      binary_handler   - percents_offsets
+        dq      symbol_handler   - percents_offsets
+        dq      decimal_handler  - percents_offsets
+        dq      default_handler  - percents_offsets
+        dq      float_handler    - percents_offsets
+        dq      7 dup (default_handler - percents_offsets)
+        dq      num_symb_handler - percents_offsets
 
 section .data 
 arg_num         db      1                           ; for function get_argument
 need_prt_f      db      0                           ; for binary handler
 decimal_buf     db      20 dup (0)                  ; for decimal handler
+num_prt_symb    dq      0                           ; for %n handler
 
 section .text
 global          my_printf
@@ -78,6 +83,7 @@ my_printf:
 
 ; -------------- Default handler --------------------------
 default_handler:
+float_handler:
                 inc     rbx
                 jmp     my_printf.main_loop
 
@@ -160,7 +166,20 @@ decimal_handler:
                 pop     rdx
                 pop     rbx
                 inc     rbx
-                jmp     my_printf.main_loop     
+                jmp     my_printf.main_loop 
+                
+; ----------- Number of symbols handler --------------------
+num_symb_handler:
+                call    get_argument
+                push    rsi 
+
+                mov     rsi, [rel num_prt_symb]
+                add     rsi, r12 
+                mov     dword [rax], esi 
+
+                inc     rbx
+                pop     rsi
+                jmp     my_printf.main_loop
                 
 
 
@@ -180,6 +199,10 @@ print_temp_buf:
                 mov     rdx, r12
                 mov     rax, 1
                 syscall
+
+                mov     rsi, [rel num_prt_symb]
+                add     rsi, r12
+                mov     qword [rel num_prt_symb], rsi
                 pop     rdx
                 pop     rsi
                 pop     rdi

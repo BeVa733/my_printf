@@ -8,12 +8,12 @@ percents_offsets:
         dq      default_handler - percents_offsets
         dq      binary_handler  - percents_offsets
         dq      symbol_handler  - percents_offsets
+        dq      decimal_handler - percents_offsets
 
 section .data 
 arg_num         db      1                           ; for function get_argument
 need_prt_f      db      0                           ; for binary handler
-
-
+decimal_buf     db      20 dup (0)                  ; for decimal handler
 
 section .text
 global          my_printf
@@ -29,9 +29,10 @@ my_printf:
                 push    r14     
                 push    r15
 
-                xor     rbx, rbx                    ; смещение в строке формата
-                lea     r11, [rel printing_str]     ; временный буфер
-                xor     r12, r12                    ; смещение в буфере
+                mov     byte [rel arg_num], 1
+                xor     rbx, rbx                    ; format string offset
+                lea     r11, [rel printing_str]     ; temporary buffer
+                xor     r12, r12                    ; temp buffer offset
 
 .main_loop:
                 movzx   eax, byte [rdi + rbx]
@@ -71,20 +72,33 @@ my_printf:
                 pop     rbx
                 pop     rbp
                 ret
+; ----------------------------------------------------------
+; -------------- Specificator's handlers ------------------
+; ----------------------------------------------------------
 
-; ---- обработчики спецификаторов ----
+; -------------- Default handler --------------------------
 default_handler:
-symbol_handler:
                 inc     rbx
                 jmp     my_printf.main_loop
 
-;--------------- Binary heandler ---------------------------
+;--------------- Symbol handler ---------------------------
+symbol_handler:
+                call    get_argument 
+                mov     byte [r11 + r12], al
+                inc     r12 
+                inc     rbx
+                jmp     my_printf.main_loop
 
+;--------------- Binary handler ---------------------------
 binary_handler:
                 call    get_argument
                 mov     [rel need_prt_f], 0
                 mov     r13, 64
 .binloop:
+                cmp     r12, BUF_LEN
+                jne     .allright    
+                call    print_temp_buf
+.allright:
                 dec     r13
                 shl     rax, 1
                 mov     byte [r11 + r12], '0'
@@ -104,6 +118,50 @@ binary_handler:
 .exit:
                 inc     rbx
                 jmp     my_printf.main_loop
+
+; -------------- Decimal handler ---------------------------
+decimal_handler:
+                push    rbx 
+                push    rdx
+                call    get_argument
+                lea     r10, [rel decimal_buf]
+                mov     r14, r10
+                mov     rbx, 10
+
+                test    rax, rax
+                jns     .no_sign
+                mov     [r11 + r12], '-'
+                inc     r12
+                neg     rax
+.no_sign:       
+                xor     rdx, rdx
+                div     rbx
+                add     dl, '0'
+                mov     [r10], dl
+                inc     r10
+                test    rax, rax
+                jnz     .no_sign
+
+                mov     r15, BUF_LEN
+                sub     r15, r12 
+                cmp     r15, 21
+                ja      .write
+                call    print_temp_buf
+.write:
+                dec     r10
+                mov     al, [r10]
+                mov     byte [r11 + r12], al
+                inc     r12
+                cmp     r14, r10
+                je      .exit
+                jmp     .write
+
+.exit: 
+                pop     rdx
+                pop     rbx
+                inc     rbx
+                jmp     my_printf.main_loop     
+                
 
 
 ; ----------- buffer output function -----------------------
@@ -134,7 +192,7 @@ print_temp_buf:
 ; Distr:    R10
 ; Expected: RBP --> return address
 ;-----------------------------------------------------------
-get_argument:
+get_argument: 
                 movzx   r10, byte [rel arg_num]
 
                 cmp     r10, 5

@@ -13,12 +13,14 @@ percents_offsets:
         dq      float_handler    - percents_offsets
         dq      7 dup (default_handler - percents_offsets)
         dq      num_symb_handler - percents_offsets
+        dq      octal_handler    - percents_offsets
 
 section .data 
 arg_num         db      1                           ; for function get_argument
 need_prt_f      db      0                           ; for binary handler
 decimal_buf     db      20 dup (0)                  ; for decimal handler
 num_prt_symb    dq      0                           ; for %n handler
+octal_buf       db      24 dup (0)                  ; for octal handler
 
 section .text
 global          my_printf
@@ -179,6 +181,53 @@ num_symb_handler:
 
                 inc     rbx
                 pop     rsi
+                jmp     my_printf.main_loop
+
+; ----------- Octal handler --------------------------------
+octal_handler:
+                push    rbx
+                push    rdx
+                call    get_argument
+
+                test    rax, rax
+                jnz     .not_zero
+                mov     byte [r11 + r12], '0'
+                inc     r12
+                jmp     .exit
+
+.not_zero:
+                lea     r10, [rel octal_buf]        
+                mov     r14, r10
+
+.convert_loop:
+                mov     rdx, rax                
+                and     rdx, 7                  
+                add     dl, '0'                
+                mov     [r10], dl               
+                inc     r10
+                shr     rax, 3
+                test    rax, rax
+                jnz     .convert_loop
+
+                mov     r15, BUF_LEN
+                sub     r15, r12 
+                cmp     r15, 25
+                ja      .write
+                call    print_temp_buf
+.write:
+                dec     r10
+                mov     al, [r10]
+                mov     byte [r11 + r12], al
+                inc     r12
+                cmp     r14, r10
+                je      .exit
+                jmp     .write
+
+
+.exit:
+                pop     rdx
+                pop     rbx
+                inc     rbx
                 jmp     my_printf.main_loop
                 
 

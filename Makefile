@@ -2,7 +2,7 @@ CXX = g++
 ASM = nasm
 
 CXXFLAGS = -Wall -g 
-ASMFLAGS = -f elf64
+ASMFLAGS = -f elf64 -g -F dwarf
 
 TARGET = test.out
 

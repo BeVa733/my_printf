@@ -14,6 +14,15 @@ percents_offsets:
         dq      7 dup (default_handler - percents_offsets)
         dq      num_symb_handler - percents_offsets
         dq      octal_handler    - percents_offsets
+        dq      poiner_handler   - percents_offsets
+        dq      2 dup (default_handler - percents_offsets)
+        dq      string_handler   - percents_offsets
+        dq      default_handler  - percents_offsets
+        dq      unsigned_handler - percents_offsets
+        dq      2 dup (default_handler - percents_offsets)
+        dq      hex_handler      - percents_offsets
+
+
 
 section .data 
 arg_num         db      1                           ; for function get_argument
@@ -229,7 +238,96 @@ octal_handler:
                 pop     rbx
                 inc     rbx
                 jmp     my_printf.main_loop
-                
+
+; ----------- Hex numbers handler --------------------------
+hex_handler:
+poiner_handler:
+                push    rbx
+                push    rdx
+                call    get_argument
+
+                test    rax, rax
+                jnz     .not_zero
+                mov     byte [r11 + r12], '0'
+                inc     r12
+                jmp     .exit
+
+.not_zero:
+                lea     r10, [rel octal_buf]        
+                mov     r14, r10
+
+.convert_loop:
+                mov     rdx, rax                
+                and     rdx, 15  
+                cmp     dl,  10
+                jb      .number
+                add     dl, 'A'
+                sub     dl, 10
+                jmp     .symb_done
+.number:             
+                add     dl, '0'   
+.symb_done:             
+                mov     [r10], dl               
+                inc     r10
+                shr     rax, 4
+                test    rax, rax
+                jnz     .convert_loop
+
+                mov     r15, BUF_LEN
+                sub     r15, r12 
+                cmp     r15, 25
+                ja      .write
+                call    print_temp_buf
+.write:
+                dec     r10
+                mov     al, [r10]
+                mov     byte [r11 + r12], al
+                inc     r12
+                cmp     r14, r10
+                je      .exit
+                jmp     .write
+
+
+.exit:
+                pop     rdx
+                pop     rbx
+                inc     rbx
+                jmp     my_printf.main_loop
+
+; ----------- unsigned handler ----------------------------
+unsigned_handler:
+                push    rbx 
+                push    rdx
+                call    get_argument
+                lea     r10, [rel decimal_buf]
+                mov     r14, r10
+                mov     rbx, 10
+                jmp     decimal_handler.no_sign
+      
+;------------ stirng handler -------------------------------
+string_handler:
+                push    rbx 
+                push    rdx
+                call    get_argument
+                xor     rbx, rbx 
+                xor     rdx, rdx
+.str_pars_cycle:
+                mov     bl, byte [rax + rdx]
+                test    bl, bl 
+                jz      .endofstr
+                mov     byte [r11 + r12], bl 
+                inc     r12
+                cmp     r12, BUF_LEN
+                jb      .skip_printing
+                call    print_temp_buf 
+.skip_printing: 
+                inc     rdx 
+                jmp     .str_pars_cycle 
+.endofstr:   
+                pop     rdx 
+                pop     rbx 
+                inc     rbx 
+                jmp     my_printf.main_loop
 
 
 ; ----------- buffer output function -----------------------
@@ -237,12 +335,14 @@ octal_handler:
 ;           R11 --> temporary buffer
 ;           R12 ==  temp buffer offset
 ; Exit:     R12 == 0
-; Distr:    RAX
+; Distr:    --
 ; ----------------------------------------------------------
 print_temp_buf:
                 push    rdi
                 push    rsi
                 push    rdx
+                push    rax
+
                 mov     rdi, 1
                 lea     rsi, [r11]
                 mov     rdx, r12
@@ -252,6 +352,8 @@ print_temp_buf:
                 mov     rsi, [rel num_prt_symb]
                 add     rsi, r12
                 mov     qword [rel num_prt_symb], rsi
+
+                pop     rax
                 pop     rdx
                 pop     rsi
                 pop     rdi

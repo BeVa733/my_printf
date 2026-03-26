@@ -6,101 +6,95 @@ int main()
 {
     printf("===== Тесты my_printf =====\n\n");
     printf("--- %%c ---\n");
-    my_printf("%c", 'A'); printf("\n");
-    printf("%c", 'A'); printf("\n");
-    my_printf("%c%c%c", '1', '2', '3'); printf("\n");
-    printf("%c%c%c", '1', '2', '3'); printf("\n");
+    my_printf("%c\n", 'A'); 
+    printf("%c\n", 'A'); 
+    my_printf("%c%c%c\n", '1', '2', '3'); 
+    printf("%c%c%c\n", '1', '2', '3'); 
     printf("\n");
 
     printf("--- %%d ---\n");
-    my_printf("%d", 123); printf("\n");
-    printf("%d", 123); printf("\n");
-    my_printf("%d", -456); printf("\n");
-    printf("%d", -456); printf("\n");
-    my_printf("%d %d %d", 0, 100, -100); printf("\n");
-    printf("%d %d %d", 0, 100, -100); printf("\n");
+    my_printf("%d\n", 123); 
+    printf("%d\n", 123); 
+    my_printf("%d\n", -456); 
+    printf("%d\n", -456); 
+    my_printf("%d %d %d\n", 0, 100, -100); 
+    printf("%d %d %d\n", 0, 100, -100); 
     printf("\n");
 
     printf("--- %%u ---\n");
-    my_printf("%u", 4294967295U); printf("\n");
-    printf("%u", 4294967295U); printf("\n");
-    my_printf("%u %u", 0, 123456); printf("\n");
-    printf("%u %u", 0, 123456); printf("\n");
+    my_printf("%u\n", 4294967295U); 
+    printf("%u\n", 4294967295U); 
+    my_printf("%u %u\n", 0, 123456); 
+    printf("%u %u\n", 0, 123456); 
     printf("\n");
 
     printf("--- %%s ---\n");
-    my_printf("%s", "Hello, world!"); printf("\n");
-    printf("%s", "Hello, world!"); printf("\n");
-    my_printf("%s %s", "foo", "bar"); printf("\n");
-    printf("%s %s", "foo", "bar"); printf("\n");
+    my_printf("%s", "Hello, world!\n"); 
+    printf("%s", "Hello, world!\n"); 
+    my_printf("%s %s", "foo", "bar\n"); 
+    printf("%s %s", "foo", "bar\n"); 
     printf("\n");
 
     printf("--- %%o ---\n");
-    my_printf("%o", 255); printf("\n");
-    printf("%o", 255); printf("\n");
-    my_printf("%o %o", 0, 1); printf("\n");
-    printf("%o %o", 0, 1); printf("\n");
+    my_printf("%o\n", 255); 
+    printf("%o\n", 255); 
+    my_printf("%o %o\n", 0, 1); 
+    printf("%o %o\n", 0, 1); 
     printf("\n");
 
     printf("--- %%x / %%p ---\n");
-    my_printf("%x", 0xdeadbeef); printf("\n");
-    printf("%x", 0xdeadbeef); printf("\n");
+    my_printf("%x\n", 0xdeadbeef);
+    printf("%x\n", 0xdeadbeef);
     void* ptr = (void*)0x7fff1234;
-    my_printf("%p", ptr); printf("\n");
-    printf("%p", ptr); printf("\n");
+    my_printf("%p\n", ptr);
+    printf("%p\n", ptr); 
     printf("\n");
 
     printf("--- %%b ---\n");
-    my_printf("%b", 10); printf("\n");
-    printf("1010"); printf("\n");
-    my_printf("%b %b", 0, 1); printf("\n");
-    printf("0 1"); printf("\n");
+    my_printf("%b\n", 10); 
+    printf("1010\n"); 
+    my_printf("%b %b\n", 0, 1); 
+    printf("0 1\n"); 
     printf("\n");
 
     printf("--- %%f ---\n");
-    my_printf("%f", 3.14159); printf("\n");
-    printf("%f", 3.14159); printf("\n");
-    my_printf("%f", -2.5); printf("\n");
-    printf("%f", -2.5); printf("\n");
-    my_printf("%f", 0.0); printf("\n");
-    printf("%f", 0.0); printf("\n");
-    my_printf("%f", 1e-6); printf("\n");
-    printf("%f", 1e-6); printf("\n\n");
-    my_printf("%f", 1e308); printf("\n");   
-    printf("%f", 1e308); printf("\n\n");
-    my_printf("%f", 1.0/0.0); printf("\n"); 
-    printf("%f", 1.0/0.0); printf("\n");
-    my_printf("%f", -1.0/0.0); printf("\n");
-    printf("%f", -1.0/0.0); printf("\n");
-    my_printf("%f", 0.0/0.0); printf("\n");
-    printf("%f", 0.0/0.0); printf("\n");
+    my_printf("%f\n", 3.14159); 
+    printf("%f\n", 3.14159); 
+    my_printf("%f\n", -2.5); 
+    printf("%f\n", -2.5); 
+    my_printf("%f\n", 0.0); 
+    printf("%f\n", 0.0); 
+    my_printf("%f\n", 1e-6); 
+    printf("%f\n", 1e-6); 
+    my_printf("%f\n", 1e308);
+    printf("%f\n", 1e308); 
+    my_printf("%f\n", 1.0/0.0); 
+    printf("%f\n", 1.0/0.0); 
+    my_printf("%f\n", -1.0/0.0); 
+    printf("%f\n", -1.0/0.0); 
+    my_printf("%f\n", 0.0/0.0); 
+    printf("%f\n", 0.0/0.0); 
     printf("\n");
 
     printf("--- %%n ---\n");
     int n1, n2;
-    my_printf("Hello%n", &n1); printf("\n");
+    my_printf("Hello%n\n", &n1); 
     printf(" -> %d\n", n1);
-    printf("Hello%n", &n2); printf("\n");
+    printf("Hello%n\n", &n2); 
     printf(" -> %d\n", n2);
     printf("\n");
 
     printf("--- Mixed ---\n");
-    my_printf("%c %d %s %f", 'X', 42, "test", 1.234); printf("\n");
-    printf("%c %d %s %f", 'X', 42, "test", 1.234); printf("\n");
+    my_printf("%c %d %s %f\n", 'X', 42, "test", 1.234); 
+    printf("%c %d %s %f\n", 'X', 42, "test", 1.234); 
     printf("\n");
 
     printf("--- Many agruments ---\n");
-    my_printf("%d %d %d %d %d %d %d %d", 1,2,3,4,5,6,7,8); printf("\n");
-    printf("%d %d %d %d %d %d %d %d", 1,2,3,4,5,6,7,8); printf("\n");
-    my_printf("%d %d %d %d %d %d %f %d", 1,2,3,4,5,6,7.0,8); printf("\n");
-    printf("%d %d %d %d %d %d %f %d", 1,2,3,4,5,6,7.0,8); printf("\n");
-    printf("\n");
+    my_printf("%d %d %d %d %d %d %d %d\n", 1,2,3,4,5,6,7,8);
+    printf("%d %d %d %d %d %d %d %d\n", 1,2,3,4,5,6,7,8); 
+    my_printf("%d %d %d %d %d %d %f %d\n", 1,2,3,4,5,6,7.0,8); 
+    printf("%d %d %d %d %d %d %f %d\n", 1,2,3,4,5,6,7.0,8); 
 
-    printf("--- Пустой формат ---\n");
-    my_printf(""); printf("\n");
-    printf(""); printf("\n");
-    printf("\n");
-
-    printf("===== Конец тестов =====\n");
+    printf("===== End Of Tests =====\n");
     return 0;
 }

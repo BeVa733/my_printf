@@ -90,6 +90,9 @@ my_printf:
                 cmp     al, '%'
                 je      .handle_percent
 
+                cmp     al, '\'
+                je      .handle_bckslsh
+
                 mov     byte [r11 + r12], al
                 inc     rbx
                 inc     r12
@@ -98,6 +101,23 @@ my_printf:
                 jne     .main_loop
                 call    print_temp_buf
                 jmp     .main_loop
+
+.handle_bckslsh:
+                inc     rbx                     
+                mov     al, byte [rdi + rbx]   
+                cmp     al, 'n'          
+                jne     .not_newline
+                mov     byte [r11 + r12], 10
+                jmp     .store_char
+.not_newline:
+                mov     byte [r11 + r12], '\'
+                inc     r12 
+                mov     byte [r11 + r12], al
+.store_char:
+                inc     r12
+                inc     rbx
+                jmp     .main_loop
+
 
 .handle_percent:
                 inc     rbx

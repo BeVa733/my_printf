@@ -4,6 +4,24 @@ section .bss
 printing_str:   resb BUF_LEN
 
 section .rodata
+inf:     
+        dq      0x7FF0000000000000 
+neg_inf: 
+        dq      0xFFF0000000000000
+zero: 
+        dq      0.0
+align 16
+sign_mask: 
+        dq      0x8000000000000000
+ten_e6:
+        dq      1000000.0
+half_val: 
+        dq      0.5
+abs_mask:    
+        dq      0x7FFFFFFFFFFFFFFF
+max_float:   
+        dq      9.0e18
+
 percents_offsets:
         dq      default_handler  - percents_offsets
         dq      binary_handler   - percents_offsets
@@ -22,6 +40,15 @@ percents_offsets:
         dq      2 dup (default_handler - percents_offsets)
         dq      hex_handler      - percents_offsets
 
+regs_arguments:
+        dq      float0  - regs_arguments
+        dq      float1  - regs_arguments         
+        dq      float2  - regs_arguments         
+        dq      float3  - regs_arguments         
+        dq      float4  - regs_arguments         
+        dq      float5  - regs_arguments         
+        dq      float6  - regs_arguments         
+        dq      float7  - regs_arguments         
 
 
 section .data 
@@ -30,6 +57,9 @@ need_prt_f      db      0                           ; for binary handler
 decimal_buf     db      20 dup (0)                  ; for decimal handler
 num_prt_symb    dq      0                           ; for %n handler
 octal_buf       db      24 dup (0)                  ; for octal handler
+xmm_arg_num     db      0                           ; to getting float argument
+float_buffer    db      28 dup (0)                  ; for %f (1 - sigh, 20 - integer part, 1 - point, 6 - fractional part)
+
 
 section .text
 global          my_printf
@@ -46,6 +76,8 @@ my_printf:
                 push    r15
 
                 mov     byte [rel arg_num], 1
+                mov     byte [rel xmm_arg_num], 0
+                mov     qword [rel num_prt_symb], 0
                 xor     rbx, rbx                    ; format string offset
                 lea     r11, [rel printing_str]     ; temporary buffer
                 xor     r12, r12                    ; temp buffer offset
@@ -94,7 +126,6 @@ my_printf:
 
 ; -------------- Default handler --------------------------
 default_handler:
-float_handler:
                 inc     rbx
                 jmp     my_printf.main_loop
 
@@ -109,7 +140,8 @@ symbol_handler:
 ;--------------- Binary handler ---------------------------
 binary_handler:
                 call    get_argument
-                mov     [rel need_prt_f], 0
+                movzx   rax, eax
+                mov     byte [rel need_prt_f], 0
                 mov     r13, 64
 .binloop:
                 cmp     r12, BUF_LEN
@@ -121,15 +153,15 @@ binary_handler:
                 mov     byte [r11 + r12], '0'
                 jnc     .bindone
                 mov     byte [r11 + r12], '1'
-                mov     [rel need_prt_f], 1
+                mov     byte [rel need_prt_f], 1
 .bindone:       
-                cmp     [rel need_prt_f], 0
+                cmp     byte [rel need_prt_f], 0
                 je      .check_cond
                 inc     r12
 .check_cond:
                 test    r13, r13
                 jnz     .binloop
-                cmp     [rel need_prt_f], 0
+                cmp     byte [rel need_prt_f], 0
                 jne     .exit
                 inc     r12 
 .exit:
@@ -141,6 +173,7 @@ decimal_handler:
                 push    rbx 
                 push    rdx
                 call    get_argument
+                movsx   rax, eax
                 lea     r10, [rel decimal_buf]
                 mov     r14, r10
                 mov     rbx, 10
@@ -179,6 +212,126 @@ decimal_handler:
                 inc     rbx
                 jmp     my_printf.main_loop 
                 
+; --------------- Float handler -----------------------------
+float_handler:
+                push    rdi 
+                push    rbx
+                push    rdx
+                push    r13
+                push    r14
+                push    r15
+
+                call    get_float_argument 
+                
+                lea     rdi, [rel float_buffer]
+                mov     r14, rdi
+
+                ucomisd xmm8, xmm8
+                jp      .nan
+
+                ucomisd xmm8, [rel zero]
+                jae     .check_magnitude       
+                
+                mov     byte [rdi], '-'
+                inc     rdi
+                xorpd   xmm8, [rel sign_mask]
+
+.check_magnitude:
+                movsd   xmm9, [rel inf]
+                ucomisd xmm8, xmm9
+                je      .inf 
+                
+                movsd   xmm9, [rel max_float]
+                ucomisd xmm8, xmm9
+                jae     .inf  
+        
+                cvttsd2si rax, xmm8     
+                cvtsi2sd  xmm9, rax 
+                
+                mov     r10, rdi
+                mov     rbx, 10
+.int_conv:
+                xor     rdx, rdx
+                div     rbx
+                add     dl, '0'
+                mov     [rdi], dl
+                inc     rdi
+                test    rax, rax
+                jnz     .int_conv
+                
+                mov     r13, rdi
+                dec     r13
+.int_reverse:
+                cmp     r10, r13
+                jae     .int_done
+                mov     al, [r10]
+                mov     dl, [r13]
+                mov     [r10], dl
+                mov     [r13], al
+                inc     r10
+                dec     r13
+                jmp     .int_reverse
+
+.int_done:
+                mov     byte [rdi], '.'
+                inc     rdi
+
+                subsd   xmm8, xmm9              
+                mulsd   xmm8, [rel ten_e6]      
+                addsd   xmm8, [rel half_val]    
+                cvttsd2si rax, xmm8             
+
+                mov     rcx, 6                  
+                lea     rdi, [rdi + 5]          
+                mov     r13, rdi                
+                inc     r13
+.frac_conv:
+                xor     rdx, rdx
+                mov     rbx, 10
+                div     rbx
+                add     dl, '0'
+                mov     [rdi], dl
+                dec     rdi
+                loop    .frac_conv
+                mov     rdi, r13
+                jmp     .write_to_main
+
+.nan:
+                mov     rax, 'nan'
+                mov     [rdi], rax
+                add     rdi, 3
+                jmp     .write_to_main
+.inf:
+                mov     rax, 'inf'
+                mov     [rdi], rax
+                add     rdi, 3
+
+.write_to_main:
+                mov     r13, r14                
+.copy_loop:
+                cmp     r13, rdi
+                jae     .done
+                
+                cmp     r12, BUF_LEN
+                jne     .no_flush
+                call    print_temp_buf
+.no_flush:
+                mov     al, [r13]
+                mov     [r11 + r12], al
+                inc     r13
+                inc     r12
+                jmp     .copy_loop
+
+.done:
+                pop     r15
+                pop     r14
+                pop     r13
+                pop     rdx
+                pop     rbx
+                pop     rdi
+                inc     rbx
+                jmp     my_printf.main_loop
+
 ; ----------- Number of symbols handler --------------------
 num_symb_handler:
                 call    get_argument
@@ -205,7 +358,7 @@ octal_handler:
                 jmp     .exit
 
 .not_zero:
-                lea     r10, [rel octal_buf]        
+                lea     r10, [rel octal_buf]
                 mov     r14, r10
 
 .convert_loop:
@@ -398,6 +551,12 @@ get_argument:
 
 .stack_arg:
                 sub     r10, 6
+                mov     rax, [rel xmm_arg_num]
+                cmp     rax, 8
+                ja      .get_from_stack
+                sub     rax, 8
+                add     r10, rax 
+.get_from_stack:
                 shl     r10, 3
                 mov     rax, [rbp + 16 + r10]
 
@@ -405,4 +564,57 @@ get_argument:
                 inc     byte [rel arg_num]
                 ret
 
+; ----------- function for get actual float argument--------
+; Entry:    [xmm_arg_num] == number of searching argument
+; Exit:     XMM8 == argument's value
+; Distr:    R10
+; Expected: RBP --> return address
+;           [arg_num] == number of ordinary argument
+;-----------------------------------------------------------
+get_float_argument: 
+                push    rbx
+                movzx   r10, byte [rel xmm_arg_num]
+                cmp     r10, 7
+                ja      .from_stack
+                lea     rbx, [rel regs_arguments]
+                mov     r10, [rbx + 8 * r10]
+                add     r10, rbx
+                jmp     r10   
+.from_stack:
+                movzx   rbx, byte [rel arg_num]
+                cmp     rbx, 6
+                jb      .get_from_stack
+                sub     rbx, 6
+                add     r10, rbx 
+.get_from_stack:
+                shl     r10, 3
+                movsd   xmm8, [rbp + 16 + r10]
+.ret:   
+                inc     byte [rel xmm_arg_num]
+                pop     rbx
+                ret 
 
+float0:
+                movsd   xmm8, xmm0
+                jmp     get_float_argument.ret
+float1:
+                movsd   xmm8, xmm1
+                jmp     get_float_argument.ret
+float2:
+                movsd   xmm8, xmm2
+                jmp     get_float_argument.ret
+float3:
+                movsd   xmm8, xmm3
+                jmp     get_float_argument.ret
+float4:
+                movsd   xmm8, xmm4
+                jmp     get_float_argument.ret
+float5:
+                movsd   xmm8, xmm5
+                jmp     get_float_argument.ret
+float6:
+                movsd   xmm8, xmm6
+                jmp     get_float_argument.ret
+float7:
+                movsd   xmm8, xmm7
+                jmp     get_float_argument.ret

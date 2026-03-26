@@ -34,32 +34,33 @@ xmm_arg_num     db      0                           ; to getting float argument
 float_buffer    db      28 dup (0)                  ; for %f (1 - sigh, 20 - integer part, 1 - point, 6 - fractional part)
 
 percents_offsets:
-        dq      default_handler
-        dq      binary_handler
-        dq      symbol_handler
-        dq      decimal_handler
-        dq      default_handler
-        dq      float_handler
-        dq      7 dup (default_handler)
-        dq      num_symb_handler 
-        dq      octal_handler    
-        dq      poiner_handler   
-        dq      2 dup (default_handler)
-        dq      string_handler   
-        dq      default_handler  
-        dq      unsigned_handler 
-        dq      2 dup (default_handler)
-        dq      hex_handler
+                dq      default_handler                         ; default case
+                dq      binary_handler                          ; %b
+                dq      symbol_handler                          ; %c
+                dq      decimal_handler                         ; %d
+                dq      default_handler                         ; skip
+                dq      float_handler                           ; %f
+                times ('n' - 'f' - 1) dq default_handler        ; skip
+                dq      num_symb_handler                        ; %n
+                dq      octal_handler                           ; %o
+                dq      poiner_handler                          ; %p
+                times ('s' - 'p' - 1) dq default_handler        ; skip
+                dq      string_handler                          ; %s
+                dq      default_handler                         ; skip
+                dq      unsigned_handler                        ; %u
+                times ('x' - 'h' - 1) dq default_handler        ; skip
+                dq      hex_handler                             ; %x
 
 regs_arguments:
-        dq      float0
-        dq      float1         
-        dq      float2         
-        dq      float3         
-        dq      float4         
-        dq      float5         
-        dq      float6         
-        dq      float7  
+                dq      float0
+                dq      float1         
+                dq      float2         
+                dq      float3         
+                dq      float4         
+                dq      float5         
+                dq      float6         
+                dq      float7  
+
 section .text
 global          my_printf
 
@@ -169,8 +170,6 @@ convert_base:
                 push    rdi
                 push    r10
                 push    r13
-                push    r14
-                push    r15
         
                 lea     rdi, [rel base_buf]
                 mov     r14, rdi
@@ -220,8 +219,6 @@ convert_base:
                 jmp     .copy_loop
 
 .done:
-                pop     r15
-                pop     r14
                 pop     r13
                 pop     r10
                 pop     rdi
@@ -435,108 +432,6 @@ num_symb_handler:
                 inc     rbx
                 pop     rsi
                 jmp     my_printf.main_loop
-
-; ; ----------- Octal handler --------------------------------
-; octal_handler:
-;                 push    rbx
-;                 push    rdx
-;                 call    get_argument
-
-;                 test    rax, rax
-;                 jnz     .not_zero
-;                 mov     byte [r11 + r12], '0'
-;                 inc     r12
-;                 jmp     .exit
-
-; .not_zero:
-;                 lea     r10, [rel octal_buf]
-;                 mov     r14, r10
-
-; .convert_loop:
-;                 mov     rdx, rax                
-;                 and     rdx, 7                  
-;                 add     dl, '0'                
-;                 mov     [r10], dl               
-;                 inc     r10
-;                 shr     rax, 3
-;                 test    rax, rax
-;                 jnz     .convert_loop
-
-;                 mov     r15, BUF_LEN
-;                 sub     r15, r12 
-;                 cmp     r15, 25
-;                 ja      .write
-;                 call    print_temp_buf
-; .write:
-;                 dec     r10
-;                 mov     al, [r10]
-;                 mov     byte [r11 + r12], al
-;                 inc     r12
-;                 cmp     r14, r10
-;                 je      .exit
-;                 jmp     .write
-
-
-; .exit:
-;                 pop     rdx
-;                 pop     rbx
-;                 inc     rbx
-;                 jmp     my_printf.main_loop
-
-; ; ----------- Hex numbers handler -------------------------- 
-; hex_handler:                                                  ; one function 
-; poiner_handler:
-;                 push    rbx
-;                 push    rdx
-;                 call    get_argument
-
-;                 test    rax, rax
-;                 jnz     .not_zero
-;                 mov     byte [r11 + r12], '0'
-;                 inc     r12
-;                 jmp     .exit
-
-; .not_zero:
-;                 lea     r10, [rel octal_buf]        
-;                 mov     r14, r10
-
-; .convert_loop:
-;                 mov     rdx, rax                
-;                 and     rdx, 15  
-;                 cmp     dl,  10
-;                 jb      .number
-;                 add     dl, 'A'
-;                 sub     dl, 10
-;                 jmp     .symb_done
-; .number:             
-;                 add     dl, '0'   
-; .symb_done:             
-;                 mov     [r10], dl               
-;                 inc     r10
-;                 shr     rax, 4
-;                 test    rax, rax
-;                 jnz     .convert_loop
-
-;                 mov     r15, BUF_LEN
-;                 sub     r15, r12 
-;                 cmp     r15, 25
-;                 ja      .write
-;                 call    print_temp_buf
-; .write:
-;                 dec     r10
-;                 mov     al, [r10]
-;                 mov     byte [r11 + r12], al
-;                 inc     r12
-;                 cmp     r14, r10
-;                 je      .exit
-;                 jmp     .write
-
-
-; .exit:
-;                 pop     rdx
-;                 pop     rbx
-;                 inc     rbx
-;                 jmp     my_printf.main_loop
 
 ; ----------- unsigned handler ----------------------------
 unsigned_handler:

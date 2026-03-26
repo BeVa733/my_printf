@@ -5,7 +5,7 @@ extern "C" void my_printf(const char* format_str, ...);
 int main()
 {
     printf("===== Тесты my_printf =====\n\n");
-    printf("--- %%c ---\n");
+    my_printf("--- %%c ---\n");
     my_printf("%c\n", 'A'); 
     printf("%c\n", 'A'); 
     my_printf("%c%c%c\n", '1', '2', '3'); 
@@ -84,15 +84,10 @@ int main()
     printf(" -> %d\n", n2);
     printf("\n");
 
-    printf("--- Mixed ---\n");
-    my_printf("%c %d %s %f\n", 'X', 42, "test", 1.234); 
-    printf("%c %d %s %f\n", 'X', 42, "test", 1.234); 
-    printf("\n");
-
     printf("--- Many agruments ---\n");
     my_printf("%d %d %d %d %d %d %d %d\n", 1,2,3,4,5,6,7,8);
     printf("%d %d %d %d %d %d %d %d\n", 1,2,3,4,5,6,7,8); 
-    my_printf("%d %d %d %d %d %d %f %d\n", 1,2,3,4,5,6,7.0,8); 
+    my_printf("%d %d %d %d %d %d %f %d\n %d %s %x %d %c %b \n", 1,2,3,4,5,6,7.0,8, -1, "love", 3802, 100, 33, 126); 
     printf("%d %d %d %d %d %d %f %d\n", 1,2,3,4,5,6,7.0,8); 
 
     printf("===== End Of Tests =====\n");

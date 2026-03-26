@@ -13,7 +13,7 @@ OBJS = $(CXX_SRCS:.cpp=.o) $(ASM_SRCS:.asm=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-	$(CXX) $^ -o $@
+	$(CXX) $^ -pie -o $@
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@

@@ -1,7 +1,9 @@
+default         rel 
 BUF_LEN         equ 256
 
 section .bss
 printing_str:   resb BUF_LEN
+base_buf:       resb 64
 
 section .rodata
 inf:     
@@ -22,35 +24,6 @@ abs_mask:
 max_float:   
         dq      9.0e18
 
-percents_offsets:
-        dq      default_handler  - percents_offsets
-        dq      binary_handler   - percents_offsets
-        dq      symbol_handler   - percents_offsets
-        dq      decimal_handler  - percents_offsets
-        dq      default_handler  - percents_offsets
-        dq      float_handler    - percents_offsets
-        dq      7 dup (default_handler - percents_offsets)
-        dq      num_symb_handler - percents_offsets
-        dq      octal_handler    - percents_offsets
-        dq      poiner_handler   - percents_offsets
-        dq      2 dup (default_handler - percents_offsets)
-        dq      string_handler   - percents_offsets
-        dq      default_handler  - percents_offsets
-        dq      unsigned_handler - percents_offsets
-        dq      2 dup (default_handler - percents_offsets)
-        dq      hex_handler      - percents_offsets
-
-regs_arguments:
-        dq      float0  - regs_arguments
-        dq      float1  - regs_arguments         
-        dq      float2  - regs_arguments         
-        dq      float3  - regs_arguments         
-        dq      float4  - regs_arguments         
-        dq      float5  - regs_arguments         
-        dq      float6  - regs_arguments         
-        dq      float7  - regs_arguments         
-
-
 section .data 
 arg_num         db      1                           ; for function get_argument
 need_prt_f      db      0                           ; for binary handler
@@ -60,6 +33,33 @@ octal_buf       db      24 dup (0)                  ; for octal handler
 xmm_arg_num     db      0                           ; to getting float argument
 float_buffer    db      28 dup (0)                  ; for %f (1 - sigh, 20 - integer part, 1 - point, 6 - fractional part)
 
+percents_offsets:
+                dq      default_handler                         ; default case
+                dq      binary_handler                          ; %b
+                dq      symbol_handler                          ; %c
+                dq      decimal_handler                         ; %d
+                dq      default_handler                         ; skip
+                dq      float_handler                           ; %f
+                times ('n' - 'f' - 1) dq default_handler        ; skip
+                dq      num_symb_handler                        ; %n
+                dq      octal_handler                           ; %o
+                dq      poiner_handler                          ; %p
+                times ('s' - 'p' - 1) dq default_handler        ; skip
+                dq      string_handler                          ; %s
+                dq      default_handler                         ; skip
+                dq      unsigned_handler                        ; %u
+                times ('x' - 'h' - 1) dq default_handler        ; skip
+                dq      hex_handler                             ; %x
+
+regs_arguments:
+                dq      float0
+                dq      float1         
+                dq      float2         
+                dq      float3         
+                dq      float4         
+                dq      float5         
+                dq      float6         
+                dq      float7  
 
 section .text
 global          my_printf
@@ -90,6 +90,9 @@ my_printf:
                 cmp     al, '%'
                 je      .handle_percent
 
+                cmp     al, '\'
+                je      .handle_bckslsh
+
                 mov     byte [r11 + r12], al
                 inc     rbx
                 inc     r12
@@ -99,15 +102,37 @@ my_printf:
                 call    print_temp_buf
                 jmp     .main_loop
 
+.handle_bckslsh:
+                inc     rbx                     
+                mov     al, byte [rdi + rbx]   
+                cmp     al, 'n'          
+                jne     .not_newline
+                mov     byte [r11 + r12], 10
+                jmp     .store_char
+.not_newline:
+                mov     byte [r11 + r12], '\'
+                inc     r12 
+                mov     byte [r11 + r12], al
+.store_char:
+                inc     r12
+                inc     rbx
+                jmp     .main_loop
+
+
 .handle_percent:
                 inc     rbx
                 mov     al, byte [rdi + rbx]
+                cmp     al, '%'
+                je      .per_symb
                 sub     al, 'a'
                 movzx   rax, al
                 lea     r10, [rel percents_offsets]
-                mov     rax, [r10 + 8*rax]
-                add     rax, r10
-                jmp     rax
+                jmp     [r10 + rax*8]
+.per_symb:      
+                mov     byte [r11 + r12], '%'
+                inc     rbx
+                inc     r12
+                jmp     .main_loop
 
 .main_done:
                 call    print_temp_buf
@@ -137,36 +162,99 @@ symbol_handler:
                 inc     rbx
                 jmp     my_printf.main_loop
 
-;--------------- Binary handler ---------------------------
+;--------------- Bin/Oct/Hex comverter --------------------
+convert_base:
+                push    rbx
+                push    rdx
+                push    rsi
+                push    rdi
+                push    r10
+                push    r13
+        
+                lea     rdi, [rel base_buf]
+                mov     r14, rdi
+                mov     rbx, rcx 
+        
+                mov     rsi, 1
+                shl     rsi, cl
+                dec     rsi
+        
+                test    rax, rax
+                jnz     .convert_loop
+        
+                mov     byte [rdi], '0'
+                inc     rdi
+                jmp     .copy_to_output
+        
+.convert_loop:
+                mov     rdx, rax
+                and     rdx, rsi
+                cmp     dl, 10
+                jb      .digit_0_9
+                add     dl, 'A' - 10
+                jmp     .store_char
+.digit_0_9:
+                add     dl, '0'
+.store_char:
+                mov     [rdi], dl
+                inc     rdi
+                shr     rax, cl
+                test    rax, rax
+                jnz     .convert_loop
+
+.copy_to_output:
+                mov     r10, rdi
+                dec     r10                   
+.copy_loop:
+                cmp     r10, r14
+                jb      .done
+                cmp     r12, BUF_LEN
+                jne     .no_flush
+                call    print_temp_buf
+.no_flush:
+                mov     al, [r10]
+                mov     [r11 + r12], al
+                inc     r12
+                dec     r10
+                jmp     .copy_loop
+
+.done:
+                pop     r13
+                pop     r10
+                pop     rdi
+                pop     rsi
+                pop     rdx
+                pop     rbx
+                ret
+
+;-------------- Binary Handler ----------------------------
 binary_handler:
                 call    get_argument
-                movzx   rax, eax
-                mov     byte [rel need_prt_f], 0
-                mov     r13, 64
-.binloop:
-                cmp     r12, BUF_LEN
-                jne     .allright    
-                call    print_temp_buf
-.allright:
-                dec     r13
-                shl     rax, 1
-                mov     byte [r11 + r12], '0'
-                jnc     .bindone
-                mov     byte [r11 + r12], '1'
-                mov     byte [rel need_prt_f], 1
-.bindone:       
-                cmp     byte [rel need_prt_f], 0
-                je      .check_cond
-                inc     r12
-.check_cond:
-                test    r13, r13
-                jnz     .binloop
-                cmp     byte [rel need_prt_f], 0
-                jne     .exit
-                inc     r12 
-.exit:
+                movzx   rax, eax              
+                mov     rcx, 1
+                call    convert_base
                 inc     rbx
                 jmp     my_printf.main_loop
+
+;-------------- Octal handler -----------------------------
+octal_handler:
+                call    get_argument
+                movzx   rax, eax
+                mov     rcx, 3
+                call    convert_base
+                inc     rbx
+                jmp     my_printf.main_loop
+
+;-------------- Hex handler -------------------------------
+hex_handler:
+poiner_handler:
+                call    get_argument
+                movzx   rax, eax
+                mov     rcx, 4
+                call    convert_base
+                inc     rbx
+                jmp     my_printf.main_loop
+
 
 ; -------------- Decimal handler ---------------------------
 decimal_handler:
@@ -345,108 +433,6 @@ num_symb_handler:
                 pop     rsi
                 jmp     my_printf.main_loop
 
-; ----------- Octal handler --------------------------------
-octal_handler:
-                push    rbx
-                push    rdx
-                call    get_argument
-
-                test    rax, rax
-                jnz     .not_zero
-                mov     byte [r11 + r12], '0'
-                inc     r12
-                jmp     .exit
-
-.not_zero:
-                lea     r10, [rel octal_buf]
-                mov     r14, r10
-
-.convert_loop:
-                mov     rdx, rax                
-                and     rdx, 7                  
-                add     dl, '0'                
-                mov     [r10], dl               
-                inc     r10
-                shr     rax, 3
-                test    rax, rax
-                jnz     .convert_loop
-
-                mov     r15, BUF_LEN
-                sub     r15, r12 
-                cmp     r15, 25
-                ja      .write
-                call    print_temp_buf
-.write:
-                dec     r10
-                mov     al, [r10]
-                mov     byte [r11 + r12], al
-                inc     r12
-                cmp     r14, r10
-                je      .exit
-                jmp     .write
-
-
-.exit:
-                pop     rdx
-                pop     rbx
-                inc     rbx
-                jmp     my_printf.main_loop
-
-; ----------- Hex numbers handler --------------------------
-hex_handler:
-poiner_handler:
-                push    rbx
-                push    rdx
-                call    get_argument
-
-                test    rax, rax
-                jnz     .not_zero
-                mov     byte [r11 + r12], '0'
-                inc     r12
-                jmp     .exit
-
-.not_zero:
-                lea     r10, [rel octal_buf]        
-                mov     r14, r10
-
-.convert_loop:
-                mov     rdx, rax                
-                and     rdx, 15  
-                cmp     dl,  10
-                jb      .number
-                add     dl, 'A'
-                sub     dl, 10
-                jmp     .symb_done
-.number:             
-                add     dl, '0'   
-.symb_done:             
-                mov     [r10], dl               
-                inc     r10
-                shr     rax, 4
-                test    rax, rax
-                jnz     .convert_loop
-
-                mov     r15, BUF_LEN
-                sub     r15, r12 
-                cmp     r15, 25
-                ja      .write
-                call    print_temp_buf
-.write:
-                dec     r10
-                mov     al, [r10]
-                mov     byte [r11 + r12], al
-                inc     r12
-                cmp     r14, r10
-                je      .exit
-                jmp     .write
-
-
-.exit:
-                pop     rdx
-                pop     rbx
-                inc     rbx
-                jmp     my_printf.main_loop
-
 ; ----------- unsigned handler ----------------------------
 unsigned_handler:
                 push    rbx 
@@ -577,9 +563,8 @@ get_float_argument:
                 cmp     r10, 7
                 ja      .from_stack
                 lea     rbx, [rel regs_arguments]
-                mov     r10, [rbx + 8 * r10]
-                add     r10, rbx
-                jmp     r10   
+                jmp     [rbx + 8 * r10]
+ 
 .from_stack:
                 movzx   rbx, byte [rel arg_num]
                 cmp     rbx, 6

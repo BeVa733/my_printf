@@ -4,7 +4,7 @@ extern "C" void my_printf(const char* format_str, ...);
 
 int main()
 {
-    printf("===== Тесты my_printf =====\n\n");
+    printf("===== Tests of my_printf =====\n\n");
     my_printf("--- %%c ---\n");
     my_printf("%c\n", 'A'); 
     printf("%c\n", 'A'); 

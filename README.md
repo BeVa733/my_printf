@@ -40,6 +40,6 @@ mov rsi, 42
 call my_printf
 ```
 
-```
+```C
 // Пример вызова из Си
 my_printf("Hello, %s! Hex: %x, Float: %f\n", "world", 255, 3.14);

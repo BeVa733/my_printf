@@ -6,8 +6,8 @@ ASMFLAGS = -f elf64 -g -F dwarf
 
 TARGET = test.out
 
-CXX_SRCS = test_programm.cpp
-ASM_SRCS = my_printf.asm
+CXX_SRCS = tests/test_programm.cpp
+ASM_SRCS = src/my_printf.asm
 OBJS = $(CXX_SRCS:.cpp=.o) $(ASM_SRCS:.asm=.o)
 
 all: $(TARGET)
